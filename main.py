@@ -19,6 +19,8 @@ import json
 import logging
 from glob import glob
 from multiprocessing import JoinableQueue, Process
+import wandb
+from datetime import datetime
 
 import os
 
@@ -85,6 +87,23 @@ def single_run(agent_config: str, agent_generator: callable):
                     f"epochs{params['epochs']}-"
                     f"seed{params['seed']}"
     })
+
+    # WandB
+    wandb_project_name = "stabilized-rl"
+    wandb_entity = "resl-mixppo"
+    wandb_group = "trust_region_layers"
+    wandb_unique_id = f'{datetime.now().strftime("%Y%m%d_%H%M%S_%f")}'
+
+    wandb.init(
+        project=wandb_project_name,
+        entity=wandb_entity,
+        group=wandb_group,
+        id=wandb_unique_id,
+        sync_tensorboard=True,
+        resume="allow",
+        name="mixppo",
+        config=params,
+    )
 
     agent = agent_generator(params)
     agent.learn()
