@@ -17,6 +17,7 @@
 import gym
 from typing import Union
 
+from metaworld_utils import gen_env
 from trust_region_projections.trajectories.env_normalizer import BaseNormalizer, MovingAvgNormalizer
 from trust_region_projections.trajectories.vector_env import SequentialVectorEnv
 
@@ -36,6 +37,27 @@ def make_env(env_id: str, seed: int, rank: int) -> callable:
 
     def _get_env():
         env = gym.make(env_id)
+        env.seed(seed + rank)
+        return env
+
+    return _get_env
+
+
+def make_env_MT(env_id: str, seed: int, rank: int) -> callable:
+    """
+    Returns callable to create gym environment
+
+    Args:
+        env_id: gym env ID
+        seed: seed for env
+        rank: rank if multiple ensv are used
+
+    Returns: callable for env constructor
+
+    """
+
+    def _get_env():
+        env = gen_env(env_id)
         env.seed(seed + rank)
         return env
 
@@ -64,13 +86,24 @@ class NormalizedEnvWrapper(object):
         """
 
         self.max_episode_length = max_episode_length
-
-        self.envs = SequentialVectorEnv([make_env(env_id, seed, i) for i in range(n_envs)],
-                                        max_episode_length=max_episode_length)
+        if env_id.startswith("MT"):
+            env_id = env_id[2:]
+            self.envs = SequentialVectorEnv([make_env_MT(env_id, seed, i) for i in range(n_envs)],
+                                            max_episode_length=max_episode_length)
+        else:
+            self.envs = SequentialVectorEnv([make_env(env_id, seed, i) for i in range(n_envs)],
+                                            max_episode_length=max_episode_length)
         if n_test_envs:
-            # Create test envs here to leverage the moving average normalization for testing envs.
-            self.envs_test = SequentialVectorEnv([make_env(env_id, seed + n_envs, i) for i in range(n_test_envs)],
-                                                 max_episode_length=max_episode_length)
+            if env_id.startswith("MT"):
+                env_id = env_id[2:]
+                # Create test envs here to leverage the moving average normalization for testing envs.
+                self.envs_test = SequentialVectorEnv(
+                    [make_env_MT(env_id, seed + n_envs, i) for i in range(n_test_envs)],
+                    max_episode_length=max_episode_length)
+            else:
+                # Create test envs here to leverage the moving average normalization for testing envs.
+                self.envs_test = SequentialVectorEnv([make_env(env_id, seed + n_envs, i) for i in range(n_test_envs)],
+                                                     max_episode_length=max_episode_length)
 
         self.norm_obs = norm_obs
         self.clip_obs = clip_obs

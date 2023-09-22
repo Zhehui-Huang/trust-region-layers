@@ -24,6 +24,7 @@ import gym
 import numpy as np
 import torch as ch
 
+from metaworld_utils import gen_env
 from trust_region_projections.algorithms.abstract_algo import AbstractAlgorithm
 from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
 from trust_region_projections.models.policy.policy_factory import get_policy_network
@@ -624,8 +625,10 @@ class PolicyGradient(AbstractAlgorithm):
         """
 
         print(params)
-
-        env = gym.make(params['game'])
+        if params['game'].startswith("MT"):
+            env = gen_env(params['game'][2:])
+        else:
+            env = gym.make(params['game'])
         obs_dim = env.observation_space.shape[0]
         action_dim = env.action_space.shape[0]
 
